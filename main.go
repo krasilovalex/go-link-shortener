@@ -87,6 +87,7 @@ func redirectHandler(w http.ResponseWriter, r *http.Request) {
 	links[key] = linkData
 	saveFiles("url.json", links)
 	mu.Unlock()
+
 	http.Redirect(w, r, linkData.OriginalURL, http.StatusFound)
 }
 
