@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"sync"
 )
 
 type Link struct {
@@ -14,6 +15,7 @@ type Link struct {
 }
 
 var links map[string]Link
+var mu sync.Mutex
 
 func createLink(w http.ResponseWriter, r *http.Request) {
 
@@ -45,9 +47,12 @@ func createLink(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "", http.StatusBadRequest)
 		return
 	}
+
+	mu.Lock()
 	_, ok := links[anon.Alias]
 
 	if ok {
+		mu.Unlock()
 		http.Error(w, "Данное имя занято", http.StatusBadRequest)
 		return
 	}
@@ -60,6 +65,7 @@ func createLink(w http.ResponseWriter, r *http.Request) {
 
 	links[anon.Alias] = NewLink
 	saveFiles("url.json", links)
+	mu.Unlock()
 
 	w.WriteHeader(http.StatusCreated)
 	fmt.Fprintf(w, "Ссылка создана: /%s", anon.Alias)
@@ -69,15 +75,18 @@ func createLink(w http.ResponseWriter, r *http.Request) {
 func redirectHandler(w http.ResponseWriter, r *http.Request) {
 	key := r.URL.Path[1:]
 
+	mu.Lock()
 	linkData, ok := links[key]
 
 	if !ok {
+		mu.Unlock()
 		http.Error(w, "Введите ссылку", http.StatusNotFound)
 		return
 	}
 	linkData.Clicks++
 	links[key] = linkData
 	saveFiles("url.json", links)
+	mu.Unlock()
 	http.Redirect(w, r, linkData.OriginalURL, http.StatusFound)
 }
 
